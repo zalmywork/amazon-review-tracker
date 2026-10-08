@@ -9,7 +9,7 @@ import type { AsinRow } from "./types";
 export interface SplitFamily {
   parent: string;
   title: string | null;
-  variations: { asin: string; label: string | null; ratings: number; image: string | null }[];
+  variations: { asin: string; label: string | null; ratings: number; image: string | null; asOf: string | null }[];
 }
 
 export async function familiesNotSharing(): Promise<SplitFamily[]> {
@@ -53,7 +53,7 @@ export async function familiesNotSharing(): Promise<SplitFamily[]> {
       parent,
       title: parents.get(parent) ?? kids[0].title,
       variations: kids
-        .map((k) => ({ asin: k.asin, label: k.variation_label, ratings: k.rating_count!, image: k.image_url }))
+        .map((k) => ({ asin: k.asin, label: k.variation_label, ratings: k.rating_count!, image: k.image_url, asOf: k.keepa_rating_at }))
         .sort((a, b) => b.ratings - a.ratings),
     }))
     .sort((a, b) => b.variations[0].ratings - a.variations[0].ratings);
