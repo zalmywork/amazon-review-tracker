@@ -25,6 +25,17 @@ export interface KeepaProduct {
   csv?: (number[] | null)[] | null;
   lastRatingUpdate?: number;
   reviews?: { lastUpdate?: number; reviewCount?: number[] | null } | null;
+  images?: { l?: string; m?: string; variant?: string }[] | null;
+}
+
+/** Keepa's marker for "no parent" in parentAsinHistory. */
+const NO_PARENT = "-1";
+
+function imageUrl(p: KeepaProduct): string | null {
+  const imgs = p.images ?? [];
+  const main = imgs.find((i) => i.variant === "MAIN") ?? imgs[0];
+  const file = main?.m ?? main?.l;
+  return file ? `https://m.media-amazon.com/images/I/${file}` : null;
 }
 
 function key(): string {
@@ -78,8 +89,9 @@ export interface ReviewReading {
   ratingAt: string | null;
   ratingHistory: { at: number; value: number }[];
   parentAsin: string | null;
-  /** Earlier parents and when each stopped being the parent. */
+  /** Earlier parents and when each stopped being the parent (periods with no parent excluded). */
   parentChanges: { previousParent: string; endedAt: string }[];
+  imageUrl: string | null;
 }
 
 export function readReviews(p: KeepaProduct): ReviewReading {
@@ -90,8 +102,9 @@ export function readReviews(p: KeepaProduct): ReviewReading {
   const h = p.parentAsinHistory ?? [];
   for (let i = 0; i + 1 < h.length; i += 2) {
     const minutes = Number(h[i]);
-    if (Number.isFinite(minutes) && h[i + 1]) {
-      parentChanges.push({ previousParent: String(h[i + 1]), endedAt: keepaTime(minutes) });
+    const previous = String(h[i + 1] ?? "");
+    if (Number.isFinite(minutes) && previous && previous !== NO_PARENT) {
+      parentChanges.push({ previousParent: previous, endedAt: keepaTime(minutes) });
     }
   }
   return {
@@ -100,8 +113,9 @@ export function readReviews(p: KeepaProduct): ReviewReading {
     ownReviewCount: own.at(-1)?.value ?? null,
     ratingAt: p.lastRatingUpdate ? keepaTime(p.lastRatingUpdate) : null,
     ratingHistory: counts,
-    parentAsin: p.parentAsin ?? null,
+    parentAsin: p.parentAsin && p.parentAsin !== NO_PARENT ? p.parentAsin : null,
     parentChanges,
+    imageUrl: imageUrl(p),
   };
 }
 

@@ -145,6 +145,7 @@ export async function reviewsStep(
         own_review_count: r?.ownReviewCount ?? row.own_review_count,
         keepa_parent_asin: r?.parentAsin ?? null,
         keepa_rating_at: r?.ratingAt ?? row.keepa_rating_at,
+        image_url: row.image_url ?? r?.imageUrl ?? null,
         keepa_checked_on: today,
         keepa_priority: false,
         updated_at: new Date().toISOString(),

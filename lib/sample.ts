@@ -1,3 +1,4 @@
+import { db, must } from "./db";
 import type { WelcomeInfo } from "./digest";
 import type { AsinRow, EventRow } from "./types";
 
@@ -8,19 +9,7 @@ export const asHistory = (events: EventRow[]): EventRow[] =>
     type: e.type === "ratings_drop" ? "history_ratings_drop" : e.type === "left_family" ? "history_parent_change" : e.type,
   }));
 
-export function sampleWelcome(asins: Map<string, AsinRow>): WelcomeInfo {
-  const parents = [...asins.values()].filter((a) => a.is_parent);
-  return {
-    families: 214,
-    variations: 1187,
-    listed: 1342,
-    topFamilies: parents.map((p) => ({
-      parent: p,
-      variations: p.child_asins.length,
-      ratings: Math.max(...p.child_asins.map((c) => asins.get(c)?.rating_count ?? 0)),
-    })),
-  };
-}
+export const SAMPLE_WELCOME: WelcomeInfo = { families: 80, variations: 378, listed: 576 };
 
 /** Made-up data so the email can be previewed before any real change happens. */
 export function sampleDigestData(date: string): { events: EventRow[]; asins: Map<string, AsinRow> } {
@@ -77,6 +66,51 @@ export function sampleDigestData(date: string): { events: EventRow[]; asins: Map
     drop("B0SAMPLE11", "B0SAMPLEP2", 1980, 1102, 4.6, 4.6, 301, day(2, 9)),
     drop("B0SAMPLE12", "B0SAMPLEP2", 1980, 611, 4.6, 4.5, 150, day(2, 9)),
     drop("B0SAMPLE13", "B0SAMPLEP2", 1980, 267, 4.6, 4.7, 71, day(2, 9)),
+  ];
+  return { events, asins };
+}
+
+/**
+ * The sample built from two of our own families (real names and images, made-up
+ * changes), so a test email looks like the real thing. Falls back to the
+ * made-up sample until the catalog has been read.
+ */
+export async function sampleFromCatalog(date: string): Promise<{ events: EventRow[]; asins: Map<string, AsinRow> }> {
+  const kids = must(
+    await db()
+      .from("asins")
+      .select("*")
+      .not("parent_asin", "is", null)
+      .not("rating_count", "is", null)
+      .not("image_url", "is", null)
+      .order("rating_count", { ascending: false })
+      .limit(300),
+    "sample families"
+  ) as AsinRow[];
+  const byParent = new Map<string, AsinRow[]>();
+  for (const k of kids) byParent.set(k.parent_asin!, [...(byParent.get(k.parent_asin!) ?? []), k]);
+  const families = [...byParent].filter(([, members]) => members.length >= 3).slice(0, 2);
+  if (families.length < 2) return sampleDigestData(date);
+
+  const parents = must(await db().from("asins").select("*").in("asin", families.map(([p]) => p)), "sample parents") as AsinRow[];
+  const asins = new Map<string, AsinRow>([...parents, ...families.flatMap(([, m]) => m)].map((r) => [r.asin, r]));
+  const yesterday = new Date(Date.parse(`${date}T15:00:00-04:00`) - 86_400_000).toISOString();
+  const drop = (asin: string, family: string, before: number, after: number): EventRow => ({
+    detected_on: date,
+    type: "ratings_drop",
+    asin,
+    family_asin: family,
+    details: { before, after, changed_at: yesterday },
+  });
+
+  const [[splitParent, a], [pooledParent, b]] = families;
+  const total = a[0].rating_count!;
+  const own = Math.max(1, Math.round(total * 0.12));
+  const events: EventRow[] = [
+    { detected_on: date, type: "left_family", asin: a[1].asin, family_asin: splitParent, details: { old_parent: splitParent } },
+    drop(a[1].asin, splitParent, total, own),
+    ...a.filter((m) => m.asin !== a[1].asin).map((m) => drop(m.asin, splitParent, total, total - own)),
+    ...b.slice(0, 4).map((m, i) => drop(m.asin, pooledParent, m.rating_count!, Math.round(m.rating_count! * [0.55, 0.3, 0.12, 0.05][i]))),
   ];
   return { events, asins };
 }

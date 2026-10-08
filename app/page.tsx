@@ -1,7 +1,7 @@
 import { connection } from "next/server";
 import { db, must } from "@/lib/db";
 import { keepaPending } from "@/lib/reviews";
-import { trackingCounts, type DailyRun } from "@/lib/run";
+import { imageCoverage, trackingCounts, type DailyRun } from "@/lib/run";
 import { etDate, fmtDay, fmtEt } from "@/lib/time";
 import type { EventRow } from "@/lib/types";
 
@@ -38,14 +38,16 @@ function describe(e: EventRow): string {
 
 async function load(today: string) {
   const client = db();
-  const [counts, runs, events, pending] = await Promise.all([
+  const [counts, images, runs, events, pending] = await Promise.all([
     trackingCounts(),
+    imageCoverage(),
     client.from("daily_runs").select("*").order("run_on", { ascending: false }).limit(10),
     client.from("events").select("*").order("id", { ascending: false }).limit(50),
     process.env.KEEPA_API_KEY ? keepaPending(today) : Promise.resolve(null),
   ]);
   return {
     counts,
+    images,
     runs: must(runs, "runs") as DailyRun[],
     events: must(events, "events") as EventRow[],
     pending,
@@ -128,12 +130,13 @@ export default async function Home() {
 
       {data && (
         <>
-          <section className="mb-6 grid gap-3 sm:grid-cols-4">
+          <section className="mb-6 grid gap-3 sm:grid-cols-3 lg:grid-cols-5">
             {[
               ["Variation families", data.counts.families],
               ["Variations watched", data.counts.variations],
               ["Your listings", data.counts.listed],
               ["Keepa reads left today", data.pending ?? "Keepa off"],
+              ["Variations with images", `${data.images.withImage.toLocaleString()} / ${data.images.total.toLocaleString()}`],
             ].map(([label, value]) => (
               <div key={label} className={card}>
                 <div className="text-xs text-zinc-500">{label}</div>

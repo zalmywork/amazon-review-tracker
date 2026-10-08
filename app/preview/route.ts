@@ -1,13 +1,14 @@
 import { db, must } from "@/lib/db";
 import { buildDigest } from "@/lib/digest";
-import { loadFamilies, welcomeInfo } from "@/lib/run";
-import { asHistory, sampleDigestData, sampleWelcome } from "@/lib/sample";
+import { loadFamilies, trackingCounts } from "@/lib/run";
+import { asHistory, SAMPLE_WELCOME, sampleDigestData, sampleFromCatalog } from "@/lib/sample";
 import { etDate } from "@/lib/time";
 import type { AsinRow, EventRow } from "@/lib/types";
 
 /**
- * The next email exactly as Sara would get it (changes not yet emailed; if
- * there are none, the last 14 days). ?sample shows made-up data, ?welcome the
+ * The next email exactly as it would go out (changes not yet emailed; if
+ * there are none, the last 14 days). ?sample shows our own products with made-up
+ * changes, ?welcome the
  * first-day email.
  */
 export async function GET(req: Request) {
@@ -34,11 +35,11 @@ export async function GET(req: Request) {
     else sample = !wantWelcome;
   }
   if (sample) {
-    ({ events, asins } = sampleDigestData(today));
+    ({ events, asins } = await sampleFromCatalog(today).catch(() => sampleDigestData(today)));
     if (wantWelcome) events = asHistory(events);
   }
 
-  const welcome = wantWelcome ? (sample ? sampleWelcome(asins) : await welcomeInfo()) : undefined;
-  const { html } = buildDigest({ date: today, events, asins, sample, welcome, appUrl: process.env.APP_URL });
+  const welcome = wantWelcome ? (sample ? SAMPLE_WELCOME : await trackingCounts()) : undefined;
+  const { html } = buildDigest({ date: today, events, asins, sample, welcome });
   return new Response(html, { headers: { "content-type": "text/html; charset=utf-8" } });
 }

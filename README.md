@@ -42,7 +42,7 @@ the 60 days before tracking started. Errors email `ADMIN_EMAIL` once per day and
    - `ALERT_TO` — comma-separated (Sara); optional `ALERT_CC`
    - `ADMIN_EMAIL` — gets error alerts and test emails
    - `CRON_SECRET` — any long random string; Vercel Cron sends it automatically
-   - `SITE_PASSWORD` — for the status page; `APP_URL` — the deployed URL (linked from emails)
+   - `SITE_PASSWORD` — for the status page
 3. Redeploy so the env vars take effect.
 
 ## Checking it works

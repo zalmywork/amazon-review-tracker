@@ -154,23 +154,19 @@ async function emailStep(today: string, log: (m: string) => void): Promise<strin
   }
 
   const asins = await loadFamilies(events);
-  const digest = buildDigest({
-    date: today,
-    events,
-    asins,
-    welcome: first ? await welcomeInfo() : undefined,
-    appUrl: process.env.APP_URL,
-  });
-  const id = await sendEmail({ to, cc: recipients(process.env.ALERT_CC), ...digest });
+  const digest = buildDigest({ date: today, events, asins, welcome: first ? await trackingCounts() : undefined });
+  // Events that don't amount to lost reviews (e.g. a family re-parented intact) are filed without an email.
+  const quiet = digest.shown === 0 && !first;
+  const id = quiet ? null : await sendEmail({ to, cc: recipients(process.env.ALERT_CC), ...digest });
 
   const ids = events.map((e) => e.id!);
   const sentAt = new Date().toISOString();
   for (let i = 0; i < ids.length; i += 200) {
     must(await db().from("events").update({ emailed_at: sentAt }).in("id", ids.slice(i, i + 200)), "mark emailed");
   }
-  const outcome = first ? "welcome" : `sent (${events.length} changes)`;
+  const outcome = first ? "welcome" : quiet ? "no review losses" : `sent (${digest.shown} families)`;
   await saveRun(today, { email_sent_at: sentAt, email_result: outcome });
-  log(`email ${id}: "${digest.subject}" → ${to.join(", ")}`);
+  if (id) log(`email ${id}: "${digest.subject}" → ${to.join(", ")}`);
   return outcome;
 }
 
@@ -207,7 +203,7 @@ async function countOf(
   return res.count ?? 0;
 }
 
-export async function trackingCounts() {
+export async function trackingCounts(): Promise<WelcomeInfo> {
   const head = { count: "exact" as const, head: true };
   const [families, variations, listed] = await Promise.all([
     countOf(db().from("asins").select("asin", head).eq("is_parent", true).neq("child_asins", "{}"), "families"),
@@ -217,26 +213,13 @@ export async function trackingCounts() {
   return { families, variations, listed };
 }
 
-export async function welcomeInfo(): Promise<WelcomeInfo> {
-  const totals = await trackingCounts();
-  const kids = must(
-    await db()
-      .from("asins")
-      .select("parent_asin, rating_count")
-      .not("parent_asin", "is", null)
-      .not("rating_count", "is", null)
-      .order("rating_count", { ascending: false })
-      .limit(500),
-    "top families"
-  ) as { parent_asin: string; rating_count: number }[];
-  const top = new Map<string, number>();
-  for (const k of kids) if (!top.has(k.parent_asin) && top.size < 10) top.set(k.parent_asin, k.rating_count);
-  const parents = new Map<string, AsinRow>();
-  await fetchAsins([...top.keys()], parents);
-  return {
-    ...totals,
-    topFamilies: [...top]
-      .filter(([p]) => parents.has(p))
-      .map(([p, ratings]) => ({ parent: parents.get(p)!, variations: parents.get(p)!.child_asins.length, ratings })),
-  };
+/** How many watched variations have a product image (status page). */
+export async function imageCoverage() {
+  const head = { count: "exact" as const, head: true };
+  const base = () => db().from("asins").select("asin", head).eq("is_parent", false).not("parent_asin", "is", null);
+  const [total, withImage] = await Promise.all([
+    countOf(base(), "image total"),
+    countOf(base().not("image_url", "is", null), "image coverage"),
+  ]);
+  return { total, withImage };
 }
