@@ -2,14 +2,42 @@ import { db, must } from "./db";
 import type { AsinRow } from "./types";
 
 /**
- * Families whose variations don't show one shared ratings count right now —
- * i.e. reviews are split, however long ago it happened. While a family's
- * reviews are pooled every variation shows the same number.
+ * Families with variations that aren't sharing the family's reviews right now,
+ * however long ago it happened. While pooled, every variation shows the same
+ * ratings count — but Keepa refreshes variations on different days, so an old
+ * reading can lag the family by a few percent without anything being wrong.
  */
+const FRESH_DAYS = 14;
+const FRESH_GAP = 0.9; // read around the same time: anything 10%+ lower is split
+const STALE_GAP = 0.5; // older reading: only under half the family can't be explained by growth since
+
 export interface SplitFamily {
   parent: string;
   title: string | null;
-  variations: { asin: string; label: string | null; ratings: number; image: string | null; asOf: string | null }[];
+  top: Variation;
+  split: Variation[];
+}
+
+interface Variation {
+  asin: string;
+  label: string | null;
+  ratings: number;
+  image: string | null;
+  asOf: string | null;
+}
+
+const days = (a: string | null, b: string | null) =>
+  a && b ? Math.abs(Date.parse(a) - Date.parse(b)) / 86_400_000 : Infinity;
+
+export function splitVariations(kids: AsinRow[]): { top: AsinRow; split: AsinRow[] } | null {
+  if (kids.length < 2) return null;
+  const top = kids.reduce((a, b) => (b.rating_count! > a.rating_count! ? b : a));
+  const split = kids.filter((k) => {
+    if (k === top || top.rating_count! - k.rating_count! < 10) return false;
+    const gap = days(k.keepa_rating_at, top.keepa_rating_at) <= FRESH_DAYS ? FRESH_GAP : STALE_GAP;
+    return k.rating_count! < top.rating_count! * gap;
+  });
+  return split.length ? { top, split } : null;
 }
 
 export async function familiesNotSharing(): Promise<SplitFamily[]> {
@@ -34,27 +62,30 @@ export async function familiesNotSharing(): Promise<SplitFamily[]> {
 
   const byParent = new Map<string, AsinRow[]>();
   for (const r of rows) byParent.set(r.parent_asin!, [...(byParent.get(r.parent_asin!) ?? []), r]);
-  const split = [...byParent].filter(([, kids]) => {
-    if (kids.length < 2) return false;
-    const counts = kids.map((k) => k.rating_count!);
-    const hi = Math.max(...counts);
-    return hi - Math.min(...counts) > Math.max(2, hi * 0.02);
-  });
-  if (!split.length) return [];
+  const found = [...byParent]
+    .map(([parent, kids]) => ({ parent, result: splitVariations(kids) }))
+    .filter((f): f is { parent: string; result: { top: AsinRow; split: AsinRow[] } } => f.result !== null);
+  if (!found.length) return [];
 
-  const parents = new Map(
-    (must(await db().from("asins").select("asin, title").in("asin", split.map(([p]) => p)), "parents") as {
+  const titles = new Map(
+    (must(await db().from("asins").select("asin, title").in("asin", found.map((f) => f.parent)), "parents") as {
       asin: string;
       title: string | null;
     }[]).map((p) => [p.asin, p.title])
   );
-  return split
-    .map(([parent, kids]) => ({
+  const v = (k: AsinRow): Variation => ({
+    asin: k.asin,
+    label: k.variation_label,
+    ratings: k.rating_count!,
+    image: k.image_url,
+    asOf: k.keepa_rating_at,
+  });
+  return found
+    .map(({ parent, result }) => ({
       parent,
-      title: parents.get(parent) ?? kids[0].title,
-      variations: kids
-        .map((k) => ({ asin: k.asin, label: k.variation_label, ratings: k.rating_count!, image: k.image_url, asOf: k.keepa_rating_at }))
-        .sort((a, b) => b.ratings - a.ratings),
+      title: titles.get(parent) ?? result.top.title,
+      top: v(result.top),
+      split: result.split.map(v).sort((a, b) => a.ratings - b.ratings),
     }))
-    .sort((a, b) => b.variations[0].ratings - a.variations[0].ratings);
+    .sort((a, b) => b.top.ratings - a.top.ratings);
 }

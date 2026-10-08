@@ -181,20 +181,22 @@ export default async function Home() {
 
           <section className={`${card} mb-6`}>
             <h2 className="font-semibold">Not sharing reviews right now ({data.notSharing.length})</h2>
-            <p className="mt-1 text-zinc-500">
-              Families whose variations show different ratings counts — their reviews are split, however long ago it happened.
-            </p>
+            <p className="mt-1 text-zinc-500">Variations showing far fewer ratings than the rest of their family, however long ago it happened.</p>
             <ul className="mt-3 divide-y divide-zinc-100 dark:divide-zinc-800">
               {data.notSharing.map((f) => (
                 <li key={f.parent} className="py-3">
                   <a className="font-medium hover:underline" href={`https://www.amazon.com/dp/${f.parent}`}>
                     {(f.title ?? f.parent).split(",")[0]}
                   </a>
-                  <div className="mt-1 flex flex-wrap gap-x-4 gap-y-1 text-zinc-500">
-                    {f.variations.map((v) => (
-                      <span key={v.asin} className="tabular-nums">
-                        {v.label ?? v.asin}: <b className="text-zinc-800 dark:text-zinc-200">{v.ratings.toLocaleString()}</b>
-                      </span>
+                  <span className="text-zinc-500"> · top variation shows {f.top.ratings.toLocaleString()}</span>
+                  <div className="mt-1 flex flex-wrap gap-x-4 gap-y-1">
+                    {f.split.map((v) => (
+                      <a key={v.asin} href={`https://www.amazon.com/dp/${v.asin}`} className="tabular-nums hover:underline">
+                        {v.label ?? v.asin}: <b className="text-red-700 dark:text-red-400">{v.ratings.toLocaleString()}</b>
+                        {v.asOf && Date.now() - Date.parse(v.asOf) > 14 * 86_400_000 && (
+                          <span className="text-zinc-500"> (as of {fmtDay(v.asOf)})</span>
+                        )}
+                      </a>
                     ))}
                   </div>
                 </li>
