@@ -1,6 +1,7 @@
 import { connection } from "next/server";
 import { db, must } from "@/lib/db";
 import { keepaPending } from "@/lib/reviews";
+import { familiesNotSharing } from "@/lib/audit";
 import { imageCoverage, trackingCounts, type DailyRun } from "@/lib/run";
 import { etDate, fmtDay, fmtEt } from "@/lib/time";
 import type { EventRow } from "@/lib/types";
@@ -38,9 +39,10 @@ function describe(e: EventRow): string {
 
 async function load(today: string) {
   const client = db();
-  const [counts, images, runs, events, pending] = await Promise.all([
+  const [counts, images, notSharing, runs, events, pending] = await Promise.all([
     trackingCounts(),
     imageCoverage(),
+    familiesNotSharing(),
     client.from("daily_runs").select("*").order("run_on", { ascending: false }).limit(10),
     client.from("events").select("*").order("id", { ascending: false }).limit(50),
     process.env.KEEPA_API_KEY ? keepaPending(today) : Promise.resolve(null),
@@ -48,6 +50,7 @@ async function load(today: string) {
   return {
     counts,
     images,
+    notSharing,
     runs: must(runs, "runs") as DailyRun[],
     // Keepa's "-1" means "had no parent" — joining a family, not a change worth listing.
     events: (must(events, "events") as EventRow[]).filter((e) => e.details.old_parent !== "-1"),
@@ -174,6 +177,29 @@ export default async function Home() {
                 Last error ({fmtEt(run.last_error_at)}): {run.last_error}
               </p>
             )}
+          </section>
+
+          <section className={`${card} mb-6`}>
+            <h2 className="font-semibold">Not sharing reviews right now ({data.notSharing.length})</h2>
+            <p className="mt-1 text-zinc-500">
+              Families whose variations show different ratings counts — their reviews are split, however long ago it happened.
+            </p>
+            <ul className="mt-3 divide-y divide-zinc-100 dark:divide-zinc-800">
+              {data.notSharing.map((f) => (
+                <li key={f.parent} className="py-3">
+                  <a className="font-medium hover:underline" href={`https://www.amazon.com/dp/${f.parent}`}>
+                    {(f.title ?? f.parent).split(",")[0]}
+                  </a>
+                  <div className="mt-1 flex flex-wrap gap-x-4 gap-y-1 text-zinc-500">
+                    {f.variations.map((v) => (
+                      <span key={v.asin} className="tabular-nums">
+                        {v.label ?? v.asin}: <b className="text-zinc-800 dark:text-zinc-200">{v.ratings.toLocaleString()}</b>
+                      </span>
+                    ))}
+                  </div>
+                </li>
+              ))}
+            </ul>
           </section>
 
           <section className={`${card} mb-6 overflow-x-auto p-0`}>

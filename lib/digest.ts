@@ -252,7 +252,7 @@ export function buildDigest(input: DigestInput): { subject: string; html: string
         : ""
     }
     ${live.map((g) => cardHtml(g, asins)).join("")}
-    ${past.length ? `<div style="font-size:13px;font-weight:600;color:${C.muted};text-transform:uppercase;letter-spacing:.05em;margin:8px 0 12px">Last 60 days</div>${past.map((g) => cardHtml(g, asins)).join("")}` : ""}
+    ${past.length ? `<div style="font-size:13px;font-weight:600;color:${C.muted};text-transform:uppercase;letter-spacing:.05em;margin:8px 0 12px">Before tracking started</div>${past.map((g) => cardHtml(g, asins)).join("")}` : ""}
     ${needsFix ? `<p style="margin:4px 0 0;font-size:13px;line-height:1.5;color:${C.text}">To fix: re-attach the variation in Variation Wizard, or ask Seller Support to re-merge reviews.</p>` : ""}
     <p style="margin:24px 0 0;font-size:12px;color:${C.muted}">Daily review check · Ratings via Keepa</p>
   </div>
@@ -280,7 +280,7 @@ function toText(heading: string, live: Group[], past: Group[], input: DigestInpu
   };
   live.forEach(card);
   if (past.length) {
-    lines.push("LAST 60 DAYS", "");
+    lines.push("BEFORE TRACKING STARTED", "");
     past.forEach(card);
   }
   if (needsFix) lines.push("To fix: re-attach the variation in Variation Wizard, or ask Seller Support to re-merge reviews.");

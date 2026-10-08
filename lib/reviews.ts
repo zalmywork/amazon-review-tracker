@@ -18,7 +18,7 @@ import type { AsinRow, EventRow } from "./types";
  * stays intact, which the catalog check alone can't see.
  */
 
-const LOOKBACK_DAYS = 60;
+const LOOKBACK_DAYS = 365;
 const num = (v: string | undefined, d: number) => (v && Number.isFinite(Number(v)) ? Number(v) : d);
 export const dropThresholds = () => ({
   minRatings: num(process.env.ALERT_MIN_DROP, 10),
@@ -30,15 +30,22 @@ const isDrop = (before: number, after: number) => {
   return drop >= minRatings && drop >= (before * minPct) / 100;
 };
 
-/** ASINs still to read today: family variations, priority first, then the stalest. */
+/**
+ * Who Keepa reads: every variation in a family once a day, plus any listing
+ * never read before (once), which uncovers listings that split off before
+ * tracking began.
+ */
+const QUEUE = (today: string) =>
+  `keepa_checked_on.is.null,keepa_priority.eq.true,and(ever_in_family.eq.true,keepa_checked_on.lt.${today})`;
+
+/** ASINs still to read today: priority first, then the stalest. */
 export function keepaQueue(today: string, limit: number) {
   return db()
     .from("asins")
     .select("*")
     .eq("tracked", true)
-    .eq("ever_in_family", true)
     .eq("is_parent", false)
-    .or(`keepa_priority.eq.true,keepa_checked_on.is.null,keepa_checked_on.lt.${today}`)
+    .or(QUEUE(today))
     .order("keepa_priority", { ascending: false })
     .order("keepa_checked_on", { ascending: true, nullsFirst: true })
     .order("asin")
@@ -50,9 +57,8 @@ export async function keepaPending(today: string): Promise<number> {
     .from("asins")
     .select("asin", { count: "exact", head: true })
     .eq("tracked", true)
-    .eq("ever_in_family", true)
     .eq("is_parent", false)
-    .or(`keepa_priority.eq.true,keepa_checked_on.is.null,keepa_checked_on.lt.${today}`);
+    .or(QUEUE(today));
   if (error) throw new Error(`keepa pending: ${error.message}`);
   return count ?? 0;
 }
@@ -148,6 +154,7 @@ export async function reviewsStep(
         image_url: row.image_url ?? r?.imageUrl ?? null,
         keepa_checked_on: today,
         keepa_priority: false,
+        ever_in_family: row.ever_in_family || (r?.parentChanges.length ?? 0) > 0,
         updated_at: new Date().toISOString(),
       });
       if (r) {
