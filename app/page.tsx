@@ -16,11 +16,11 @@ const CONFIG: [string, string[]][] = [
 ];
 
 const LABEL: Record<string, string> = {
-  left_family: "Split off",
-  moved_family: "Moved family",
-  joined_family: "Rejoined",
+  left_family: "Split from family",
+  moved_family: "Moved to another parent",
+  joined_family: "Rejoined family",
   ratings_drop: "Ratings drop",
-  history_parent_change: "Split (before tracking)",
+  history_parent_change: "Parent changed (before tracking)",
   history_ratings_drop: "Ratings drop (before tracking)",
 };
 
@@ -49,7 +49,8 @@ async function load(today: string) {
     counts,
     images,
     runs: must(runs, "runs") as DailyRun[],
-    events: must(events, "events") as EventRow[],
+    // Keepa's "-1" means "had no parent" — joining a family, not a change worth listing.
+    events: (must(events, "events") as EventRow[]).filter((e) => e.details.old_parent !== "-1"),
     pending,
   };
 }
@@ -69,6 +70,7 @@ export default async function Home() {
     error = e instanceof Error ? e.message : String(e);
   }
   const run = data?.runs.find((r) => r.run_on === today);
+  const setupDone = CONFIG.every(([, vars]) => vars.every((v) => Boolean(process.env[v])));
 
   return (
     <main className="mx-auto w-full max-w-5xl px-4 py-8 text-sm text-zinc-800 dark:text-zinc-200">
@@ -97,6 +99,7 @@ export default async function Home() {
         </nav>
       </header>
 
+      {!setupDone && (
       <section className={`${card} mb-6`}>
         <h2 className="mb-3 font-semibold">Setup</h2>
         <ul className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
@@ -116,6 +119,7 @@ export default async function Home() {
           })}
         </ul>
       </section>
+      )}
 
       {error && (
         <section className="mb-6 rounded-lg border border-red-300 bg-red-50 p-4 text-red-900 dark:border-red-900 dark:bg-red-950 dark:text-red-200">
