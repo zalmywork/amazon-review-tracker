@@ -197,9 +197,13 @@ export async function loadFamilies(events: EventRow[]): Promise<Map<string, Asin
   return map;
 }
 
-async function countOf(q: PromiseLike<{ count: number | null; error: { message: string } | null }>, what: string) {
+async function countOf(
+  q: PromiseLike<{ count: number | null; status: number; error: { message: string; code?: string } | null }>,
+  what: string
+) {
   const res = await q;
-  if (res.error) throw new Error(`${what}: ${res.error.message}`);
+  // Count-only requests come back without a body, so the message is often empty.
+  if (res.error) throw new Error(`${what}: ${res.error.message || res.error.code || "request failed"} (HTTP ${res.status})`);
   return res.count ?? 0;
 }
 
