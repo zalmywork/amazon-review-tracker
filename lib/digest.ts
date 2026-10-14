@@ -222,10 +222,22 @@ function cardHtml(g: Group, asins: Map<string, AsinRow>): string {
 
 // ---------- assemble ----------
 
+/** Keep only each variation's most recent parent change, so it appears under one family. */
+function latestParentChanges(events: EventRow[]): EventRow[] {
+  const latest = new Map<string, EventRow>();
+  for (const e of events) {
+    if (e.type !== "history_parent_change" || e.details.old_parent === NO_PARENT) continue;
+    const cur = latest.get(e.asin);
+    if (!cur || (e.details.changed_at ?? "") > (cur.details.changed_at ?? "")) latest.set(e.asin, e);
+  }
+  return events.filter((e) => e.type !== "history_parent_change" || latest.get(e.asin) === e);
+}
+
 export function buildDigest(input: DigestInput): { subject: string; html: string; text: string; shown: number } {
   const { asins } = input;
-  const live = groupEvents(input.events, false);
-  const past = groupEvents(input.events, true);
+  const events = latestParentChanges(input.events);
+  const live = groupEvents(events, false);
+  const past = groupEvents(events, true);
   const problems = live.filter(isProblem);
 
   let subject: string;

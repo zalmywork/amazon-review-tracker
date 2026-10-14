@@ -194,8 +194,9 @@ export async function reviewsStep(
 function history(row: AsinRow, r: ReturnType<typeof readReviews>, today: string): EventRow[] {
   const out: EventRow[] = [];
   const since = Date.now() - LOOKBACK_DAYS * 86_400_000;
-  for (const change of r.parentChanges) {
-    if (new Date(change.endedAt).getTime() < since) continue;
+  // Only the most recent parent matters — earlier ones would list the same variation under several old families.
+  const change = r.parentChanges.at(-1);
+  if (change && new Date(change.endedAt).getTime() >= since) {
     out.push({
       detected_on: today,
       type: "history_parent_change",
