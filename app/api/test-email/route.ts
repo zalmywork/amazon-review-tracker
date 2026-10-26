@@ -4,7 +4,7 @@ import { recipients, sendEmail } from "@/lib/mail";
 import { asHistory, SAMPLE_WELCOME, sampleFromCatalog } from "@/lib/sample";
 import { etDate } from "@/lib/time";
 
-/** Sends the sample alert to ADMIN_EMAIL only (never to Sara) to check Resend is set up. */
+/** Sends the sample alert to ADMIN_EMAIL only (not the alert list) to check Resend is set up. */
 export async function GET(req: Request) {
   if (!cronAuthorized(req)) return new Response("Unauthorized", { status: 401 });
   const to = recipients(process.env.ADMIN_EMAIL);

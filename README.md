@@ -1,6 +1,6 @@
 # Amazon Review Tracker
 
-Emails Sara every morning when one of our Amazon variation families loses its shared reviews — a child
+Emails the alert list every morning when one of our Amazon variation families loses its shared reviews — a child
 ASIN splits off its parent, or Amazon stops pooling the family's reviews. No email means nothing changed.
 
 ## How it detects reviews falling off
@@ -39,7 +39,7 @@ the 60 days before tracking started. Errors email `ADMIN_EMAIL` once per day and
    - `LWA_CLIENT_ID`, `LWA_CLIENT_SECRET`, `LWA_REFRESH_TOKEN` — same SP-API app as the profit tracker
    - `KEEPA_API_KEY`
    - `RESEND_API_KEY`, `MAIL_FROM` — the sender's domain must be verified in that Resend account
-   - `ALERT_TO` — comma-separated (Sara); optional `ALERT_CC`
+   - `ALERT_TO` — comma-separated recipients; optional `ALERT_CC`
    - `ADMIN_EMAIL` — gets error alerts and test emails
    - `CRON_SECRET` — any long random string; Vercel Cron sends it automatically
    - `SITE_PASSWORD` — for the status page

@@ -13,7 +13,7 @@ export function buildIntro(opts: { siteUrl: string; password?: string; counts: W
 <html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${esc(subject)}</title></head>
 <body style="margin:0;padding:0;background:#ffffff;font-family:${font}">
   <div style="max-width:560px;margin:0 auto;padding:24px 16px">
-    ${p("Hi Sara,")}
+    ${p("Hi,")}
     ${p(`We set up a tool that watches our Amazon listings for reviews splitting off. It checks all ${counts.families} product families (${counts.variations} variations) every morning.`)}
     ${p("If a variation splits from its family, or its reviews stop being shared, you'll get an email that morning showing the product and its ratings before and after. No email means nothing changed.")}
     <table role="presentation" cellpadding="0" cellspacing="0" style="margin:6px 0 18px;border:1px solid #e5e7eb;border-radius:8px;width:100%">
@@ -29,7 +29,7 @@ export function buildIntro(opts: { siteUrl: string; password?: string; counts: W
 </body></html>`;
 
   const text = [
-    "Hi Sara,",
+    "Hi,",
     "",
     `We set up a tool that watches our Amazon listings for reviews splitting off. It checks all ${counts.families} product families (${counts.variations} variations) every morning.`,
     "",

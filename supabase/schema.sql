@@ -58,7 +58,7 @@ create table if not exists review_tracker.review_snapshots (
   primary key (captured_on, asin)
 );
 
--- Things worth telling Sara about. One row per change; emailed_at marks it sent.
+-- Things worth emailing the alert list about. One row per change; emailed_at marks it sent.
 create table if not exists review_tracker.events (
   id           bigint generated always as identity primary key,
   detected_at  timestamptz not null default now(),

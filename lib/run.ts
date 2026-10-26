@@ -12,7 +12,7 @@ import type { AsinRow, EventRow } from "./types";
  *   1. pulls our listings from Amazon,
  *   2. checks every family in Amazon's catalog,
  *   3. reads ratings for every variation from Keepa (as tokens allow),
- *   4. after SEND_HOUR, emails Sara whatever changed.
+ *   4. after SEND_HOUR, emails the alert list (ALERT_TO) whatever changed.
  * Every step is resumable, so a tick that runs out of time just continues next hour.
  */
 
